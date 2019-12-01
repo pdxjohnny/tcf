@@ -1,3 +1,0 @@
-{% extends "report-base.j2.txt" %}
-{%- block HEADER_PREFIX -%}
-{%- endblock -%}

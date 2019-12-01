@@ -1,3 +1,0 @@
-{% extends "junit-base.j2.xml" %}
-{%- block HEADER_PREFIX -%}
-{%- endblock -%}
