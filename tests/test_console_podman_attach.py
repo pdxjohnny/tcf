@@ -22,21 +22,22 @@ srcdir = os.path.dirname(__file__)
 container_name = hashlib.sha384(os.urandom(32)).hexdigest()
 
 subprocess.check_call([
-    "podman",
+    "docker",
     "run",
     "--rm",
     "-d",
     "-i",
+    "-v",
+    os.path.join(srcdir, "entrypoint_%s" % os.path.basename(__file__.rstrip('cd'))) + ":/entrypoint.py"
     "--name",
     container_name,
     "docker.io/python:3",
     "python",
     "-u",
-    "-c",
-    "import sys; list(map(lambda line: print(line.upper(), end=''), sys.stdin))",
+    "/entrypoint.py",
 ])
 atexit.register(lambda: subprocess.call([
-    "podman",
+    "docker",
     "kill",
     container_name,
 ]))
