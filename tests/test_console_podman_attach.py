@@ -11,6 +11,7 @@ import sys
 import time
 import atexit
 import hashlib
+import pathlib
 import tempfile
 import unittest
 import subprocess
@@ -36,31 +37,83 @@ class _test_00(tcfl.tc.tc_c):
     """
     @staticmethod
     def eval(target):
+        ssh_hostname = target.rtb.parsed_url.netloc
+        if ":" in ssh_hostname:
+            ssh_hostname = ssh_hostname.split(":")[0]
         from pprint import pprint
         pprint(target.properties_get())
         # Start the continer
         power = "p1"
         target.power.on(component = power)
         pprint(target.properties_get())
-        return
         # Initialize ssh connection to container to forward UNIX socket
         with tempfile.TemporaryDirectory() as tempdir:
             # Path that ssh should listen on for local UNIX socket
             local_socket_path = os.path.join(tempdir, "rpyc-ssh.sock")
             # Path that container is listening on
-            remote_socket_path = target.property_get("socket_path")
+            remote_socket_path = target.property_get("podman_rpyc").get(power).get("socket_path")
+
+            # Wait for path to exist
+            def await_socket(filepath):
+                while not pathlib.Path(filepath).is_socket():
+                    time.sleep(0.1)
+
             # Start ssh to target host
-            proc = subprocess.Popen(
-                [
-                    "ssh",
-                    "-nNT",
-                    "-L"
-                    f'{local_socket_path}:{remote_socket_path}',
-                    "localhost",
-                ],
-            )
-            # TODO concurrent.futures executor for socket present / proc.wait()
+            cmd = [
+                "ssh",
+                "-nNT",
+                "-L",
+                f'{local_socket_path}:{remote_socket_path}',
+                "-o", "PasswordAuthentication=no",
+                "-o", "UserKnownHostsFile=/dev/null",
+                "-o", "StrictHostKeyChecking=no",
+                ssh_hostname,
+            ]
+            print(cmd)
+            proc = subprocess.Popen(cmd)
             atexit.register(proc.terminate)
+
+            # concurrent.futures executor for socket present / proc.wait()
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+
+                def make_event_to_future(work):
+                    return dict(zip(work.values(), work.keys()))
+
+                work = {
+                    # executor.submit(proc.wait): "proc.wait",
+                    executor.submit(await_socket, local_socket_path): "await_file",
+                }
+                try:
+                    for future in concurrent.futures.as_completed(work):
+                        event = work[future]
+                        del work[future]
+                        exception = future.exception()
+                        if exception:
+                            raise exception
+                        result = future.result()
+                        if event == "proc.wait":
+                            print("SSH died", result)
+                            raise Exception("Failure to start ssh")
+                        elif event == "await_file":
+                            print("Socket established")
+                            break
+                            event_to_future = make_event_to_future(work)
+                            del work[event_to_future["proc.wait"]]
+                            event_to_future["proc.wait"].cancel()
+                            break
+                        elif event == "input":
+                            break
+                finally:
+                    for future in work:
+                        future.cancel()
+
+            print()
+            print()
+            print()
+
+            return
 
             # Test rpyc unix connect
             import rpyc
@@ -88,4 +141,5 @@ class _test_00(tcfl.tc.tc_c):
             "read data (%s) doesn't equal written data uppercase (%s)" % (r, s)
 
     def teardown_90_scb(self):
-        ttbd.check_log_for_issues(self)
+        pass
+        # ttbd.check_log_for_issues(self)
