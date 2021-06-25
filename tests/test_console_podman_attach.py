@@ -45,7 +45,7 @@ class _test_00(tcfl.tc.tc_c):
         # Path that container is listening on
         remote_socket_path = target.property_get("podman_rpyc").get(power).get("socket_path")
 
-        time.sleep(1)
+        time.sleep(5)
 
         # Test rpyc unix connect (only works if ttdb is running on same host)
         # TODO Getting permission denied
@@ -53,8 +53,6 @@ class _test_00(tcfl.tc.tc_c):
         print(c.modules.sys)
         print(c.modules["xml.dom.minidom"].parseString("<a/>"))
         c.close()
-
-        return
 
         # Initialize ssh connection to container to forward UNIX socket
         with tempfile.TemporaryDirectory() as tempdir:

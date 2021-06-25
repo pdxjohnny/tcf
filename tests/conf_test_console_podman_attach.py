@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import os
+import pwd
 import pathlib
 import tempfile
 import subprocess
@@ -38,6 +39,10 @@ class podman_rpyc_c(ttbl.power.daemon_c):
             "-i",
             "-e",
             f"SOCKET_PATH=/rpyc/{self.socket_filename}",
+            "-e",
+            "UID=%(uid)s",
+            "-e",
+            "GID=%(gid)s",
             "-v",
             "%(socket_dir)s:/rpyc/:rw",
             "-v",
@@ -85,6 +90,18 @@ class podman_rpyc_c(ttbl.power.daemon_c):
         self._kill_container()
         # Create a temporary directory for the socket
         self.kws["socket_dir"] = tempfile.mkdtemp()
+        # Get the user idsid so we can lookup that users uid for a chown
+        user = ttbl.user_control.User.search_user(target.owner_get())
+        print(user)
+        # TODO DEBUG Remove this in favor of None as default
+        idsid = user.fsdb.get("data.IDSID", "johnsa1")
+        # idsid = user.fsdb.get("data.IDSID", None)
+        if idsid is None:
+            raise Exception("Target must have idsid")
+        # Set the uid we need to chown the created socket
+        pw = pwd.getpwnam(idsid)
+        self.kws["uid"] = pw.pw_uid
+        self.kws["gid"] = pw.pw_gid
         # Start it
         ttbl.power.daemon_c.on(self, target, component)
         # Put path to socket in inventory
