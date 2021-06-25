@@ -123,6 +123,3 @@ target.interface_add("power", ttbl.power.interface(
         podman_path = "/usr/bin/docker" if not inpath("podman") else None
     ),
 ))
-# target.interface_add("console", ttbl.console.interface(
-#     c1 = ttbl.console.podman_pryc_pc(),
-# ))
