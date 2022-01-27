@@ -709,7 +709,7 @@ def hash_file_maybe_compressed(hash_object, filepath, cache_entries = 128,
             # FIXME: python3 just update utime
             cache.set_unlocked(hexdigest_compressed, None)
             # basic verification, it has to look like the hexdigest()
-            if len(value) == len(hoc.hexdigest()):
+            if value and len(value) == len(hoc.hexdigest()):
                 # recreate it, so that the mtime shows we just used it
                 # and LRU will keep it around
                 cache.set_unlocked(hexdigest_compressed, value)
